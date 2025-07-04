@@ -28,6 +28,16 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 func CreateBucket(w http.ResponseWriter, r *http.Request) {
 	bucketName := path.Base(r.URL.Path)
+	if !helpers.IsValidName(bucketName) {
+		http.Error(w, "Invalid bucket name", http.StatusBadRequest)
+		return
+	}
+
+	if !helpers.IsUniqueName(bucketName, helpers.Directory + "/buckets.csv") {
+		http.Error(w, "Bucket name already exists", http.StatusConflict)
+		return
+	}
+	
 	helpers.CreateDir(helpers.Directory + "/" + bucketName)
 	helpers.AppendBuckets(bucketName)
 	helpers.CreateObjectsCSV(helpers.Directory + "/" + bucketName)

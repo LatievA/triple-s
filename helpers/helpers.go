@@ -73,3 +73,25 @@ func AppendBuckets(filename string) {
 		log.Fatalln("Error writing to the file: ", filename)
 	}
 }
+
+func IsValidName(name string) bool {
+	if len(name) < 3 || len(name) > 63 {
+		return false
+	}
+	for i, v := range name {
+		if (v < 'a' || v > 'z') && v != '-' && v != '.' {
+			return false
+		} else if v == '.' && ((i != len(name)-1 && rune(name[i+1]) == '.') || (i != 0 && rune(name[i-1]) == '.')) {
+			return false
+		}
+	}
+	return true
+}
+
+func IsUniqueName(name, filename string) bool {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return !strings.Contains(string(data), name)
+}
