@@ -3,6 +3,9 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"path"
+
+	"github.com/LatievA/triple-s/helpers"
 )
 
 func RooterWays() *http.ServeMux {
@@ -24,6 +27,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateBucket(w http.ResponseWriter, r *http.Request) {
+	bucketName := path.Base(r.URL.Path)
+	helpers.CreateDir(helpers.Directory + "/" + bucketName)
+	helpers.AppendBuckets(bucketName)
+	helpers.CreateObjectsCSV(helpers.Directory + "/" + bucketName)
 }
 
 func ListBuckets(w http.ResponseWriter, r *http.Request) {}
