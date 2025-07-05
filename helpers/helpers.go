@@ -5,63 +5,52 @@ import (
 	"os"
 	"strings"
 	"time"
+	"encoding/csv"
+	"net"
 )
 
 var Directory string
 
-func CreateFile(filename string) {
-	file, err := os.Create(filename)
-	if err != nil {
-		log.Fatalln("Error creating file: ", err)
-	}
-	defer file.Close()
-	log.Println("File created or truncated: ", filename)
-}
+// Don't forget to close files after creating or reading them
 
 func CreateBucketsCSV(filename string) {
-	CreateFile(filename + "/buckets.csv")
-	file, err := os.OpenFile(Directory+"/buckets.csv", os.O_RDWR|os.O_APPEND, 0666)
+	file, err := os.OpenFile(Directory+"/buckets.csv", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 	defer file.Close()
 
 	_, err2 := file.WriteString("Name,CreationTime,LastModifiedTime,Status\n")
 	if err2 != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 
 }
 
 func CreateObjectsCSV(filename string) {
-	CreateFile(filename + "/objects.csv")
-	file, err := os.OpenFile(filename+"/objects.csv", os.O_RDWR|os.O_APPEND, 0666)
+	file, err := os.OpenFile(filename+"/objects.csv", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 	defer file.Close()
 
 	_, err2 := file.WriteString("ObjectKey,Size,ContentType,LastModified\n")
 	if err2 != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 }
 
 func CreateDir(filepath string) {
 	err := os.MkdirAll(filepath, 0755)
 	if err != nil {
-		if !os.IsExist(err) {
-			log.Println("Directory already exists, using it:", filepath)
-		} else {
-			log.Fatalln("Failed to create directory:", err)
-		}
+		log.Fatal("Failed to create directory:", err)
 	}
 }
 
 func AppendBuckets(filename string) {
 	file, err := os.OpenFile(Directory+"/buckets.csv", os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 	defer file.Close()
 
@@ -70,14 +59,36 @@ func AppendBuckets(filename string) {
 	_, err2 := file.WriteString(strings.Join(temp, ","))
 
 	if err2 != nil {
-		log.Fatalln("Error writing to the file: ", filename)
+		log.Fatal("Error writing to the file: ", filename)
 	}
 }
+
+func ReadCSV(filename string) [][]string{
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return records[1:]
+}
+
+// Validation
 
 func IsValidName(name string) bool {
 	if len(name) < 3 || len(name) > 63 {
 		return false
 	}
+
+	if name[0] == '-' || name[len(name)-1] == '-' {
+		return false
+	}
+
 	for i, v := range name {
 		if (v < 'a' || v > 'z') && v != '-' && v != '.' {
 			return false
@@ -85,6 +96,11 @@ func IsValidName(name string) bool {
 			return false
 		}
 	}
+
+	if net.ParseIP(name) != nil {
+		return false
+	}
+
 	return true
 }
 

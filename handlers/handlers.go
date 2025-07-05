@@ -1,18 +1,35 @@
 package handlers
 
 import (
-	"fmt"
+	"encoding/xml"
 	"net/http"
 	"path"
 
 	"github.com/LatievA/triple-s/helpers"
 )
 
+type ListAllMyBucketsResult struct {
+	Buckets []Bucket
+	Owner Owner
+}
+
+type Bucket struct {
+	CreationDate string
+	Name string
+}
+
+type Owner struct {
+	DisplayName string
+	ID string
+}
+
+var NewOwner *Owner = &Owner{DisplayName: "Abylay", ID: "1"}
+
 func RooterWays() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", Handler)
-	mux.HandleFunc("PUT /{BucketName}", CreateBucket)
+	// TO DO:
+	mux.HandleFunc("PUT /{BucketName}", CreateBucket) // Done
 	mux.HandleFunc("GET /", ListBuckets)
 	mux.HandleFunc("DELETE /{BucketName}", DeleteBucket)
 	mux.HandleFunc("PUT /{BucketName}/{ObjectKey}", PutObject)
@@ -20,10 +37,6 @@ func RooterWays() *http.ServeMux {
 	mux.HandleFunc("DELETE /{BucketName}/{ObjectKey}", DeleteObject)
 
 	return mux
-}
-
-func Handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %s!", r.URL.Path[1:])
 }
 
 func CreateBucket(w http.ResponseWriter, r *http.Request) {
@@ -43,16 +56,47 @@ func CreateBucket(w http.ResponseWriter, r *http.Request) {
 	helpers.CreateObjectsCSV(helpers.Directory + "/" + bucketName)
 }
 
-func ListBuckets(w http.ResponseWriter, r *http.Request) {}
+func ListBuckets(w http.ResponseWriter, r *http.Request) {
+	result := new(ListAllMyBucketsResult)
+	result.Owner = *NewOwner
+	records := helpers.ReadCSV(helpers.Directory + "/buckets.csv")
+	buckets := make([]Bucket, len(records))
+	for i, v := range records{
+		buckets[i] = Bucket{
+			Name:         v[0],
+			CreationDate: v[1],
+		}
+	}
+	result.Buckets = buckets
 
-func DeleteBucket(w http.ResponseWriter, r *http.Request) {}
+	w.Header().Set("Content-Type", "application/xml")
+	data, err := xml.Marshal(result) 
+	if err != nil {
+		http.Error(w, "error marshaling xml", http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
+}
+
+func DeleteBucket(w http.ResponseWriter, r *http.Request) {
+	bucketName := path.Base(r.URL.Path)
+	if !helpers.IsValidName(bucketName) {
+		http.Error(w, "Invalid bucket name", http.StatusBadRequest)
+		return
+	}
+
+	if helpers.IsUniqueName(bucketName, helpers.Directory + "/buckets.csv") {
+		http.Error(w, "Bucket doesn't exist", http.StatusBadRequest)
+		return
+	}
+}
 
 func PutObject(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "PutObject called with method: %s", r.Method)
+	// objectName := path.Base(r.URL.Path)
 }
 
 func GetObject(w http.ResponseWriter, r *http.Request) {}
 
 func DeleteObject(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "DeleteObject called with method: %s", r.Method)
+	// objectName := path.Base(r.URL.Path)
 }
