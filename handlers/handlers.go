@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/xml"
 	"net/http"
+	"os"
 	"path"
 
 	"github.com/LatievA/triple-s/helpers"
@@ -10,17 +11,17 @@ import (
 
 type ListAllMyBucketsResult struct {
 	Buckets []Bucket
-	Owner Owner
+	Owner   Owner
 }
 
 type Bucket struct {
 	CreationDate string
-	Name string
+	Name         string
 }
 
 type Owner struct {
 	DisplayName string
-	ID string
+	ID          string
 }
 
 var NewOwner *Owner = &Owner{DisplayName: "Abylay", ID: "1"}
@@ -46,11 +47,11 @@ func CreateBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !helpers.IsUniqueName(bucketName, helpers.Directory + "/buckets.csv") {
+	if !helpers.IsUniqueName(bucketName, helpers.Directory+"/buckets.csv") {
 		http.Error(w, "Bucket name already exists", http.StatusConflict)
 		return
 	}
-	
+
 	helpers.CreateDir(helpers.Directory + "/" + bucketName)
 	helpers.AppendBuckets(bucketName)
 	helpers.CreateObjectsCSV(helpers.Directory + "/" + bucketName)
@@ -60,8 +61,8 @@ func ListBuckets(w http.ResponseWriter, r *http.Request) {
 	result := new(ListAllMyBucketsResult)
 	result.Owner = *NewOwner
 	records := helpers.ReadCSV(helpers.Directory + "/buckets.csv")
-	buckets := make([]Bucket, len(records))
-	for i, v := range records{
+	buckets := make([]Bucket, len(*records))
+	for i, v := range *records {
 		buckets[i] = Bucket{
 			Name:         v[0],
 			CreationDate: v[1],
@@ -70,7 +71,7 @@ func ListBuckets(w http.ResponseWriter, r *http.Request) {
 	result.Buckets = buckets
 
 	w.Header().Set("Content-Type", "application/xml")
-	data, err := xml.Marshal(result) 
+	data, err := xml.Marshal(result)
 	if err != nil {
 		http.Error(w, "error marshaling xml", http.StatusInternalServerError)
 		return
@@ -85,10 +86,19 @@ func DeleteBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if helpers.IsUniqueName(bucketName, helpers.Directory + "/buckets.csv") {
+	if helpers.IsUniqueName(bucketName, helpers.Directory+"/buckets.csv") {
 		http.Error(w, "Bucket doesn't exist", http.StatusBadRequest)
 		return
 	}
+
+	if !helpers.IsEmptyCSV(helpers.Directory + "/" + bucketName + "/objects.csv") {
+		http.Error(w, "Bucket isn't empty", http.StatusConflict)
+		return
+	}
+
+	helpers.DeleteRecord(bucketName, helpers.Directory+"/buckets.csv")
+	os.RemoveAll(helpers.Directory + "/" + bucketName)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func PutObject(w http.ResponseWriter, r *http.Request) {

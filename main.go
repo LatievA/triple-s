@@ -34,13 +34,13 @@ func main() {
 	}
 
 	helpers.CreateDir(helpers.Directory)
-	helpers.CreateBucketsCSV(helpers.Directory)
+	helpers.CreateBucketsCSV()
 
 	addr := fmt.Sprintf(":%s", *port)
 	log.Printf("Server is running on http://localhost%s\n", addr)
 
 	if err := http.ListenAndServe(addr, handlers.RooterWays()); err != nil {
-		log.Fatal("Failed to start server: %v\n", err)
+		log.Fatalf("Failed to start server: %v\n", err)
 	}
 
 }

@@ -1,20 +1,21 @@
 package helpers
 
 import (
+	"encoding/csv"
 	"log"
+	"net"
 	"os"
+	flp "path/filepath"
 	"strings"
 	"time"
-	"encoding/csv"
-	"net"
 )
 
 var Directory string
 
 // Don't forget to close files after creating or reading them
 
-func CreateBucketsCSV(filename string) {
-	file, err := os.OpenFile(Directory+"/buckets.csv", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+func CreateBucketsCSV() {
+	file, err := os.OpenFile(Directory+"/buckets.csv", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -27,8 +28,8 @@ func CreateBucketsCSV(filename string) {
 
 }
 
-func CreateObjectsCSV(filename string) {
-	file, err := os.OpenFile(filename+"/objects.csv", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+func CreateObjectsCSV(filepath string) {
+	file, err := os.OpenFile(filepath+"/objects.csv", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -54,7 +55,7 @@ func AppendBuckets(filename string) {
 	}
 	defer file.Close()
 
-	temp := []string{filename, time.Now().Format(time.UnixDate), time.Now().Format(time.UnixDate), "Active"}
+	temp := []string{filename, time.Now().Format(time.UnixDate), time.Now().Format(time.UnixDate), "Active\n"}
 
 	_, err2 := file.WriteString(strings.Join(temp, ","))
 
@@ -63,8 +64,8 @@ func AppendBuckets(filename string) {
 	}
 }
 
-func ReadCSV(filename string) [][]string{
-	file, err := os.Open(filename)
+func ReadCSV(filepath string) *[][]string {
+	file, err := os.Open(filepath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -75,7 +76,45 @@ func ReadCSV(filename string) [][]string{
 	if err != nil {
 		log.Fatal(err)
 	}
-	return records[1:]
+	records = records[1:]
+	return &records
+}
+
+func WriteCSV(filepath string, records *[][]string) error {
+	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_TRUNC, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	if flp.Base(filepath) == "buckets.csv" {
+		_, err2 := file.WriteString("Name,CreationTime,LastModifiedTime,Status\n")
+		if err2 != nil {
+			log.Fatal(err)
+		}
+	} else {
+		_, err2 := file.WriteString("ObjectKey,Size,ContentType,LastModified\n")
+		if err2 != nil {
+			log.Fatal(err)
+		}
+	}
+
+	return writer.WriteAll(*records)
+}
+
+func DeleteRecord(name, filepath string) {
+	records := ReadCSV(filepath)
+	for i, v := range *records {
+		if v[0] == name {
+			*records = append((*records)[:i], (*records)[i+1:]...)
+			break
+		}
+	}
+	if err := WriteCSV(filepath, records); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Validation
@@ -90,18 +129,14 @@ func IsValidName(name string) bool {
 	}
 
 	for i, v := range name {
-		if (v < 'a' || v > 'z') && v != '-' && v != '.' {
+		if (v < 'a' || v > 'z') && !(v > '0' && v < '9') && v != '-' && v != '.' {
 			return false
 		} else if v == '.' && ((i != len(name)-1 && rune(name[i+1]) == '.') || (i != 0 && rune(name[i-1]) == '.')) {
 			return false
 		}
 	}
 
-	if net.ParseIP(name) != nil {
-		return false
-	}
-
-	return true
+	return net.ParseIP(name) == nil
 }
 
 func IsUniqueName(name, filename string) bool {
@@ -110,4 +145,9 @@ func IsUniqueName(name, filename string) bool {
 		log.Fatal(err)
 	}
 	return !strings.Contains(string(data), name)
+}
+
+func IsEmptyCSV(filepath string) bool {
+	records := ReadCSV(filepath)
+	return len(*records) == 0
 }
