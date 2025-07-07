@@ -31,11 +31,11 @@ func RooterWays() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// TO DO:
-	mux.HandleFunc("PUT /{BucketName}", CreateBucket) // Done
-	mux.HandleFunc("GET /", ListBuckets) // Done
-	mux.HandleFunc("DELETE /{BucketName}", DeleteBucket) // Done
-	mux.HandleFunc("PUT /{BucketName}/{ObjectKey}", PutObject)
-	mux.HandleFunc("GET /{BucketName}/{ObjectKey}", GetObject)
+	mux.HandleFunc("PUT /{BucketName}", CreateBucket)          // Done
+	mux.HandleFunc("GET /", ListBuckets)                       // Done
+	mux.HandleFunc("DELETE /{BucketName}", DeleteBucket)       // Done
+	mux.HandleFunc("PUT /{BucketName}/{ObjectKey}", PutObject) // Done
+	mux.HandleFunc("GET /{BucketName}/{ObjectKey}", GetObject) // Done
 	mux.HandleFunc("DELETE /{BucketName}/{ObjectKey}", DeleteObject)
 
 	return mux
@@ -110,7 +110,7 @@ func PutObject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bucket name is unvalid", http.StatusBadRequest)
 		return
 	}
-	if helpers.IsUniqueName(bucketName, helpers.Directory + "/buckets.csv") {
+	if helpers.IsUniqueName(bucketName, helpers.Directory+"/buckets.csv") {
 		http.Error(w, "bucket not exists", http.StatusBadRequest)
 		return
 	}
@@ -121,14 +121,14 @@ func PutObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !helpers.IsUniqueName(objectKey, helpers.Directory + path.Dir(r.URL.Path)+"/objects.csv") {
+	if !helpers.IsUniqueName(objectKey, helpers.Directory+path.Dir(r.URL.Path)+"/objects.csv") {
 		http.Error(w, "objectkey already exists", http.StatusBadRequest)
 		return
 	}
 
 	contentType := r.Header.Get("Content-Type")
 	contentLength := r.Header.Get("Content-Length")
-	
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "error reading request body", http.StatusInternalServerError)
@@ -140,14 +140,62 @@ func PutObject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "error writing object to file", http.StatusInternalServerError)
 		return
 	}
-	
 
-	helpers.AppendObjects(objectKey, contentLength, contentType, helpers.Directory + path.Dir(r.URL.Path)+"/objects.csv")
-
+	helpers.AppendObjects(objectKey, contentLength, contentType, helpers.Directory+path.Dir(r.URL.Path)+"/objects.csv")
 }
 
-func GetObject(w http.ResponseWriter, r *http.Request) {}
+func GetObject(w http.ResponseWriter, r *http.Request) {
+	bucketName := path.Base(path.Dir(r.URL.Path))
+	if !helpers.IsValidName(bucketName) {
+		http.Error(w, "bucket name is unvalid", http.StatusBadRequest)
+		return
+	}
+	if helpers.IsUniqueName(bucketName, helpers.Directory+"/buckets.csv") {
+		http.Error(w, "bucket not exists", http.StatusBadRequest)
+		return
+	}
+
+	objectKey := path.Base(r.URL.Path)
+	if !helpers.IsValidName(objectKey) {
+		http.Error(w, "object name is unvalid", http.StatusBadRequest)
+		return
+	}
+
+	if helpers.IsUniqueName(objectKey, helpers.Directory+path.Dir(r.URL.Path)+"/objects.csv") {
+		http.Error(w, "object not exists", http.StatusNotFound)
+		return
+	}
+
+	filePath := path.Join(helpers.Directory, bucketName, objectKey)
+	http.ServeFile(w, r, filePath)
+}
 
 func DeleteObject(w http.ResponseWriter, r *http.Request) {
-	// objectName := path.Base(r.URL.Path)
+	bucketName := path.Base(path.Dir(r.URL.Path))
+	if !helpers.IsValidName(bucketName) {
+		http.Error(w, "bucket name is unvalid", http.StatusBadRequest)
+		return
+	}
+	if helpers.IsUniqueName(bucketName, helpers.Directory+"/buckets.csv") {
+		http.Error(w, "bucket not exists", http.StatusBadRequest)
+		return
+	}
+
+	objectKey := path.Base(r.URL.Path)
+	if !helpers.IsValidName(objectKey) {
+		http.Error(w, "object name is unvalid", http.StatusBadRequest)
+		return
+	}
+
+	if helpers.IsUniqueName(objectKey, helpers.Directory+path.Dir(r.URL.Path)+"/objects.csv") {
+		http.Error(w, "object not exists", http.StatusNotFound)
+		return
+	}
+	filePath := path.Join(helpers.Directory, bucketName, objectKey)
+	if err := os.Remove(filePath); err != nil {
+		http.Error(w, "error deleting object", http.StatusInternalServerError)
+		return
+	}
+	helpers.DeleteRecord(objectKey, helpers.Directory+path.Dir(r.URL.Path)+"/objects.csv")
+	w.WriteHeader(http.StatusNoContent)
 }
