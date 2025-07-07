@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/xml"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -31,14 +32,16 @@ func RooterWays() *http.ServeMux {
 
 	// TO DO:
 	mux.HandleFunc("PUT /{BucketName}", CreateBucket) // Done
-	mux.HandleFunc("GET /", ListBuckets)
-	mux.HandleFunc("DELETE /{BucketName}", DeleteBucket)
+	mux.HandleFunc("GET /", ListBuckets) // Done
+	mux.HandleFunc("DELETE /{BucketName}", DeleteBucket) // Done
 	mux.HandleFunc("PUT /{BucketName}/{ObjectKey}", PutObject)
 	mux.HandleFunc("GET /{BucketName}/{ObjectKey}", GetObject)
 	mux.HandleFunc("DELETE /{BucketName}/{ObjectKey}", DeleteObject)
 
 	return mux
 }
+
+// change all filepath to r.URL.Path
 
 func CreateBucket(w http.ResponseWriter, r *http.Request) {
 	bucketName := path.Base(r.URL.Path)
@@ -102,7 +105,45 @@ func DeleteBucket(w http.ResponseWriter, r *http.Request) {
 }
 
 func PutObject(w http.ResponseWriter, r *http.Request) {
-	// objectName := path.Base(r.URL.Path)
+	bucketName := path.Base(path.Dir(r.URL.Path))
+	if !helpers.IsValidName(bucketName) {
+		http.Error(w, "bucket name is unvalid", http.StatusBadRequest)
+		return
+	}
+	if helpers.IsUniqueName(bucketName, helpers.Directory + "/buckets.csv") {
+		http.Error(w, "bucket not exists", http.StatusBadRequest)
+		return
+	}
+
+	objectKey := path.Base(r.URL.Path)
+	if !helpers.IsValidName(objectKey) {
+		http.Error(w, "object name is unvalid", http.StatusBadRequest)
+		return
+	}
+
+	if !helpers.IsUniqueName(objectKey, helpers.Directory + path.Dir(r.URL.Path)+"/objects.csv") {
+		http.Error(w, "objectkey already exists", http.StatusBadRequest)
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	contentLength := r.Header.Get("Content-Length")
+	
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "error reading request body", http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	if err = os.WriteFile(path.Join(helpers.Directory, bucketName, objectKey), body, 0644); err != nil {
+		http.Error(w, "error writing object to file", http.StatusInternalServerError)
+		return
+	}
+	
+
+	helpers.AppendObjects(objectKey, contentLength, contentType, helpers.Directory + path.Dir(r.URL.Path)+"/objects.csv")
+
 }
 
 func GetObject(w http.ResponseWriter, r *http.Request) {}

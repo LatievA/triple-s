@@ -49,7 +49,7 @@ func CreateDir(filepath string) {
 }
 
 func AppendBuckets(filename string) {
-	file, err := os.OpenFile(Directory+"/buckets.csv", os.O_RDWR|os.O_APPEND, 0666)
+	file, err := os.OpenFile(Directory+"/buckets.csv", os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,6 +61,22 @@ func AppendBuckets(filename string) {
 
 	if err2 != nil {
 		log.Fatal("Error writing to the file: ", filename)
+	}
+}
+
+func AppendObjects(objectKey, size, contentType, filepath string) {
+	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	temp := []string{objectKey, size, contentType, time.Now().Format(time.UnixDate) + "\n"}
+
+	_, err2 := file.WriteString(strings.Join(temp, ","))
+
+	if err2 != nil {
+		log.Fatal("Error writing to the file: ", objectKey)
 	}
 }
 
