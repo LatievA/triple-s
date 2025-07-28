@@ -145,7 +145,7 @@ func IsValidName(name string) bool {
 	}
 
 	for i, v := range name {
-		if (v < 'a' || v > 'z') && !(v > '0' && v < '9') && v != '-' && v != '.' {
+		if (v < 'a' || v > 'z') && !(v >= '0' && v <= '9') && v != '-' && v != '.'{
 			return false
 		} else if v == '.' && ((i != len(name)-1 && rune(name[i+1]) == '.') || (i != 0 && rune(name[i-1]) == '.')) {
 			return false
